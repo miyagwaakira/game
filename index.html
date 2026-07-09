@@ -6,15 +6,15 @@
   <title>Tetris</title>
   <style>
     :root {
-      color-scheme: dark;
-      --bg: #101318;
-      --panel: #1b2028;
-      --panel-2: #242b35;
-      --line: #384250;
-      --text: #f2f5f8;
-      --muted: #aeb8c5;
-      --accent: #50c8a8;
-      --danger: #ff6b6b;
+      color-scheme: light;
+      --bg: #86d8ff;
+      --panel: #ffffff;
+      --panel-2: #e9f7ff;
+      --line: #55aee2;
+      --text: #12304a;
+      --muted: #426a86;
+      --accent: #ffd84d;
+      --danger: #ff7c7c;
       --cell: min(4.8vw, 32px);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
@@ -28,12 +28,42 @@
       min-height: 100vh;
       color: var(--text);
       background:
-        radial-gradient(circle at 20% 0%, rgba(80, 200, 168, 0.16), transparent 34rem),
-        radial-gradient(circle at 90% 20%, rgba(255, 211, 105, 0.10), transparent 28rem),
+        radial-gradient(ellipse at 18% 18%, rgba(255, 255, 255, 0.92) 0 7rem, transparent 7.2rem),
+        radial-gradient(ellipse at 72% 12%, rgba(255, 255, 255, 0.82) 0 5rem, transparent 5.2rem),
+        linear-gradient(180deg, #62c9ff 0%, #aee8ff 56%, #d8f7d1 100%),
         var(--bg);
       display: grid;
       place-items: center;
       padding: 24px;
+      overflow-x: hidden;
+    }
+
+    .camera-bg {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transform: scaleX(-1);
+      transition: opacity 300ms ease;
+      z-index: -2;
+    }
+
+    .camera-bg.is-on {
+      opacity: 0.34;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 24% 14%, rgba(255, 255, 255, 0.86) 0 4.2rem, transparent 4.4rem),
+        radial-gradient(ellipse at 31% 13%, rgba(255, 255, 255, 0.78) 0 3.2rem, transparent 3.4rem),
+        radial-gradient(ellipse at 78% 22%, rgba(255, 255, 255, 0.72) 0 4.8rem, transparent 5rem);
+      pointer-events: none;
+      z-index: -1;
     }
 
     main {
@@ -54,9 +84,11 @@
 
     .board-wrap {
       position: relative;
-      border: 1px solid var(--line);
-      background: #0b0e13;
-      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+      border: 3px solid #287ab5;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.66);
+      box-shadow: 0 18px 38px rgba(24, 96, 150, 0.26);
+      overflow: hidden;
     }
 
     canvas {
@@ -76,7 +108,7 @@
       place-items: center;
       text-align: center;
       padding: 24px;
-      background: rgba(11, 14, 19, 0.72);
+      background: rgba(232, 248, 255, 0.82);
       backdrop-filter: blur(2px);
     }
 
@@ -108,7 +140,8 @@
     .mobile-controls {
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: rgba(27, 32, 40, 0.88);
+      background: rgba(255, 255, 255, 0.84);
+      box-shadow: 0 10px 24px rgba(24, 96, 150, 0.16);
     }
 
     .mini-panel {
@@ -151,7 +184,7 @@
 
     .stat {
       min-height: 72px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(85, 174, 226, 0.45);
       border-radius: 8px;
       background: var(--panel-2);
       padding: 10px;
@@ -171,10 +204,10 @@
     }
 
     button {
-      border: 1px solid rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(18, 48, 74, 0.18);
       border-radius: 8px;
       background: var(--accent);
-      color: #07110f;
+      color: #4a3500;
       min-height: 42px;
       padding: 0 14px;
       font: inherit;
@@ -193,18 +226,18 @@
 
     .button-row {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1fr 1fr;
       gap: 10px;
     }
 
     .secondary {
-      background: #303845;
+      background: #5fc7ff;
       color: var(--text);
     }
 
     .danger {
       background: var(--danger);
-      color: #220707;
+      color: #4b0b0b;
     }
 
     .controls {
@@ -280,6 +313,7 @@
   </style>
 </head>
 <body>
+  <video class="camera-bg" id="cameraBg" autoplay muted playsinline aria-hidden="true"></video>
   <main>
     <section>
       <div class="game-shell">
@@ -341,6 +375,7 @@
         </div>
         <div class="button-row">
           <button id="pauseButton" class="secondary" type="button">Pause</button>
+          <button id="cameraButton" class="secondary" type="button">Camera</button>
           <button id="restartButton" class="danger" type="button">Reset</button>
         </div>
       </section>
@@ -364,7 +399,7 @@
     const COLS = 10;
     const ROWS = 20;
     const BLOCK = 30;
-    const BAG_TYPES = "IJLOSTZ";
+    const BAG_TYPES = "IJLOSTZP";
 
     const COLORS = {
       I: "#45d8ff",
@@ -374,6 +409,7 @@
       S: "#5fe08d",
       T: "#c77dff",
       Z: "#ff6474",
+      P: "#ff9ed8",
       ghost: "rgba(255, 255, 255, 0.22)",
       grid: "rgba(255, 255, 255, 0.055)"
     };
@@ -383,6 +419,7 @@
       J: [[1, 0, 0], [1, 1, 1], [0, 0, 0]],
       L: [[0, 0, 1], [1, 1, 1], [0, 0, 0]],
       O: [[1, 1], [1, 1]],
+      P: [[1, 1, 0], [1, 1, 1], [0, 0, 0]],
       S: [[0, 1, 1], [1, 1, 0], [0, 0, 0]],
       T: [[0, 1, 0], [1, 1, 1], [0, 0, 0]],
       Z: [[1, 1, 0], [0, 1, 1], [0, 0, 0]]
@@ -400,7 +437,9 @@
     const overlayText = document.querySelector("#overlayText");
     const startButton = document.querySelector("#startButton");
     const pauseButton = document.querySelector("#pauseButton");
+    const cameraButton = document.querySelector("#cameraButton");
     const restartButton = document.querySelector("#restartButton");
+    const cameraBg = document.querySelector("#cameraBg");
 
     let grid;
     let current;
@@ -417,6 +456,7 @@
     let gameOver = false;
     let dropTimer = 0;
     let lastTime = 0;
+    let cameraStream = null;
 
     bestEl.textContent = best.toLocaleString();
     resetGame();
@@ -671,7 +711,11 @@
     }
 
     function drawBoardBackground() {
-      boardCtx.fillStyle = "#0b0e13";
+      const sky = boardCtx.createLinearGradient(0, 0, 0, boardCanvas.height);
+      sky.addColorStop(0, "#b8edff");
+      sky.addColorStop(0.62, "#eefbff");
+      sky.addColorStop(1, "#d8f7d1");
+      boardCtx.fillStyle = sky;
       boardCtx.fillRect(0, 0, boardCanvas.width, boardCanvas.height);
       boardCtx.strokeStyle = COLORS.grid;
       boardCtx.lineWidth = 1;
@@ -726,7 +770,7 @@
 
     function drawPreview(ctx, type) {
       ctx.clearRect(0, 0, 96, 96);
-      ctx.fillStyle = "#141922";
+      ctx.fillStyle = "#e8f8ff";
       ctx.fillRect(0, 0, 96, 96);
       if (!type) return;
       const matrix = SHAPES[type];
@@ -771,8 +815,34 @@
 
     startButton.addEventListener("click", startGame);
     pauseButton.addEventListener("click", togglePause);
+    cameraButton.addEventListener("click", toggleCamera);
     restartButton.addEventListener("click", resetGame);
+
+    async function toggleCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach((track) => track.stop());
+        cameraStream = null;
+        cameraBg.srcObject = null;
+        cameraBg.classList.remove("is-on");
+        cameraButton.textContent = "Camera";
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        cameraButton.textContent = "No Cam";
+        return;
+      }
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user" },
+          audio: false
+        });
+        cameraBg.srcObject = cameraStream;
+        cameraBg.classList.add("is-on");
+        cameraButton.textContent = "Cam On";
+      } catch (error) {
+        cameraButton.textContent = "Blocked";
+      }
+    }
   </script>
 </body>
 </html>
-
